@@ -1,0 +1,20 @@
+[Unit]
+Description=This is development template service
+Documentation=man:systemd.service(5)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+EnvironmentFile=/usr/share/nextcloud-container-stack/conf.d/env
+Type=oneshot
+RemainAfterExit=yes
+User=nextcloud-container-stack
+Group=nextcloud-container-stack
+WorkingDirectory=/usr/share/nextcloud-container-stack
+ExecStart=/usr/share/nextcloud-container-stack/scripts/start.sh
+ExecStop=/usr/share/nextcloud-container-stack/scripts/stop.sh
+TimeoutStartSec=180
+TimeoutStopSec=180
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,106 @@
+#!/bin/bash
+set -e
+
+#------------#
+# Preprocess #
+#------------#
+
+# 環境変数ロード
+APP_NAME="nextcloud-container-stack"
+source /usr/share/${APP_NAME}/conf.d/env
+
+# CWD変更
+cd ${APP_DIR_ROOT}
+
+#----------#
+# Function #
+#----------#
+
+# 汎用エラー
+err() {
+    echo "$1" 1>&2
+    exit 1
+}
+
+# アプリ用ユーザー・グループの作成
+create_user_group() {
+    # ユーザーとグループの作成
+    if ! id ${USER_NAME} > /dev/null 2>&1 && ! id ${USER_UID} > /dev/null 2>&1 && ! getent group ${GROUP_NAME} > /dev/null 2>&1 && ! getent group ${GROUP_GID} > /dev/null 2>&1; then
+        # 既存ユーザー・グループの存在チェック。
+        # ユーザー名,UID,グループ名,GID すべて存在しなければ新規作成。
+        groupadd --system --gid ${GROUP_GID} ${GROUP_NAME}
+        useradd --system --uid ${USER_UID} --gid ${GROUP_GID} --home-dir ${USER_HOME_DIR} -m --shell /sbin/nologin ${USER_NAME} > /dev/null 2>&1
+    elif [ "$(id -u ${USER_NAME})" = "${USER_UID}" ] &&  [ "$(id -g ${USER_NAME})" = "${GROUP_GID}" ] && [ "$(getent group ${GROUP_GID}| cut -d ':' -f 1)" = "${GROUP_NAME}" ]; then
+        # ユーザー名、UID, プライマリグループIDとそのグループ名すべてが既に想定通り設定されている場合は何もしない
+        :
+    else
+        # どの条件にも当てはまらない場合はエラー
+        ID_INFO="$(id ${USER_NAME} 2>/dev/null || true)"
+        GETENT_INFO="$(getent group ${GROUP_NAME} 2>/dev/null || true)"
+        ERR_MSG="Error: Failed to check existing User, Group.
+        For your information:
+        Expected User and Group: User name:${USER_NAME}, UID:${USER_UID}, Group name:${GROUP_NAME}, GID:${GROUP_GID}
+        id ${USER_NAME}: ${ID_INFO}
+        getent group ${GROUP_NAME}: ${GETENT_INFO}
+        "
+        err "${ERR_MSG}"
+    fi
+
+    # Linger 有効化
+    if [ "$(loginctl -p Linger show-user ${USER_UID})" != "Linger=yes" ]; then
+        loginctl enable-linger ${USER_UID}
+    fi
+}
+
+# /etc/subuid, /etc/subgid の設定
+set_subuid_subgid() {
+    if grep "${SUBUID}$" /etc/subuid > /dev/null 2>&1 && grep "${SUBGID}$" /etc/subgid > /dev/null 2>&1; then
+        return 0
+    fi
+
+    # 対象となるユーザー名またはグループ名と重複するエントリがいずれもなければ追加、それ以外の場合はエラー
+    if ! grep "^${USER_NAME}:" /etc/subuid > /dev/null 2>&1 && ! grep "^${GROUP_NAME}:" /etc/subgid > /dev/null 2>&1; then
+        echo ${SUBUID} >> /etc/subuid
+        echo ${SUBGID} >> /etc/subgid
+        sleep 2
+    else
+        SUBUID_ENTRY="$(grep "^${USER_NAME}:" /etc/subuid 2>/dev/null || true)"
+        SUBGID_ENTRY="$(grep "^${GROUP_NAME}:" /etc/subgid 2>/dev/null || true)"
+        ERR_MSG="Error: unexpected entry exists in /etc/subuid or /etc/subgid.
+        For your information:
+        /etc/subuid: ${SUBUID_ENTRY}
+        /etc/subgid: ${SUBGID_ENTRY}"
+        err "${ERR_MSG}"
+    fi
+}
+
+# データディレクトリ作成
+create_dir() {
+    # データディレクトリ作成
+    mkdir -p ${APP_DATA_DIR}
+    # オーナーシップ設定
+    chown ${USER_UID}:${GROUP_GID} ${DATA_DIR_ROOT}
+    chown ${USER_UID}:${GROUP_GID} ${APP_DATA_DIR}
+}
+
+# podman ネットワーク作成
+create_podman_network() {
+    if ! runuser -u ${USER_NAME} -- podman network inspect ${PODMAN_NETWORK_0} > /dev/null 2>&1 ; then
+        runuser -u ${USER_NAME} -- podman network create ${PODMAN_NETWORK_0} > /dev/null 2>&1
+    fi
+}
+
+#------#
+# main #
+#------#
+
+case "$1" in
+    "configure")
+        create_user_group
+        set_subuid_subgid
+        create_dir
+        create_podman_network
+        ;;
+    *)
+        ;;
+esac
