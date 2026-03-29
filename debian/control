@@ -11,4 +11,6 @@ Architecture: all
 Depends:
  ${misc:Depends},
  bash
+ podman
+ podman-compose
 Description: This is sample application.
