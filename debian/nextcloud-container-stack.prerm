@@ -1,0 +1,47 @@
+#!/bin/bash
+set -e
+
+#------------#
+# Preprocess #
+#------------#
+
+# 環境変数ロード
+APP_NAME="nextcloud-container-stack"
+source /usr/share/${APP_NAME}/conf.d/env
+
+# CWD変更
+cd ${APP_DIR_ROOT}
+
+#----------#
+# Function #
+#----------#
+
+stop_containers() {
+    systemctl stop ${APP_NAME} || true
+}
+
+delete_user_group() {
+    loginctl terminate-user ${USER_UID} || true
+    loginctl disable-linger ${USER_UID} || true
+    sleep 2
+    userdel ${USER_NAME} > /dev/null 2>&1 || true
+}
+
+cleanup_subuid_subgid() {
+    sed -i "\\|^${SUBUID}$|d" /etc/subuid
+    sed -i "\\|^${SUBGID}$|d" /etc/subgid
+}
+
+#------#
+# main #
+#------#
+
+case "$1" in
+    "remove")
+        stop_containers
+        delete_user_group
+        cleanup_subuid_subgid
+        ;;
+    *)
+        ;;
+esac

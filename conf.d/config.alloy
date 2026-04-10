@@ -1,0 +1,26 @@
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+discovery.relabel "podman_exporter" {
+  targets = [
+    {
+      __address__ = "podman-exporter:9882",
+      app         = env("APP_NAME"),
+    },
+  ]
+}
+
+prometheus.scrape "podman_exporter" {
+  targets         = discovery.relabel.podman_exporter.output
+  scrape_interval = "15s"
+  forward_to      = [prometheus.remote_write.host_prometheus.receiver]
+  job_name        = env("ALLOY_JOB_NAME")
+}
+
+prometheus.remote_write "host_prometheus" {
+  endpoint {
+    url = env("PROMETHEUS_REMOTE_WRITE_URL")
+  }
+}

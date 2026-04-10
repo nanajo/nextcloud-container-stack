@@ -1,0 +1,14 @@
+Source: nextcloud-container-stack
+Section: admin
+Priority: optional
+Maintainer: nanajo <nanajo@example.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+
+Package: nextcloud-container-stack
+Architecture: all
+Depends:
+ ${misc:Depends},
+ bash
+Description: This is sample application.

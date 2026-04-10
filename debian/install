@@ -1,0 +1,6 @@
+compose.d usr/share/nextcloud-container-stack/
+conf.d usr/share/nextcloud-container-stack/
+scripts usr/share/nextcloud-container-stack/
+nextcloud-container-stack.service usr/lib/systemd/system/
+custom.env /etc/nextcloud-container-stack/
+nginx_nextcloud.template /etc/nextcloud-container-stack/

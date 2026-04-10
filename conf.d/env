@@ -1,0 +1,49 @@
+#----------#
+# 基本情報 #
+#----------#
+# アプリケーション名
+APP_NAME="nextcloud-container-stack"
+# モニタリング用alloyのジョブ名
+ALLOY_JOB_NAME="${APP_NAME}-alloy"
+
+# ディレクトリ定義
+APP_DIR_ROOT="/usr/share/${APP_NAME}"
+DATA_DIR_ROOT="/var/local/${APP_NAME}"
+ETC_DIR="/etc/${APP_NAME}"
+USER_HOME_DIR="${DATA_DIR_ROOT}/home"
+
+# ユーザー/グループ情報
+USER_NAME="nextcloud-container-stack"
+USER_UID="30001"
+GROUP_NAME="nextcloud-container-stack"
+GROUP_GID="30001"
+SUBUID="${USER_NAME}:100000:65536"
+SUBGID="${GROUP_NAME}:100000:65536"
+
+# 専用podmanネットワーク
+PODMAN_NETWORK_0="${APP_NAME}"
+
+# モニタリング用の alloy, prometheus-podman-exporter のバージョン
+ALLOY_VER="latest"
+PODMAN_EXPORTER_VER="v1.10.1"
+
+
+#------------------------#
+# アプリケーション別設定 #
+#------------------------#
+# コンテナバージョン
+NGINX_VER="1.29.6"
+NEXTCLOUD_VER="31.0.14"
+MARIADB_VER="12.2.2"
+
+
+# 設定ファイル
+NGINX_CONFIG="${ETC_DIR}/nginx_nextcloud.template"
+
+# カスタムスクリプト
+NEXTCLOUD_CUSTOM_ENTRYPOINT="${APP_DIR_ROOT}/compose.d/nextcloud-entrypoint.sh"
+NEXTCLOUD_OCC_SETUP="${APP_DIR_ROOT}/compose.d/occ-setup.sh"
+
+# DB設定
+MYSQL_USER="nextcloud"
+MYSQL_DB="nextcloud"

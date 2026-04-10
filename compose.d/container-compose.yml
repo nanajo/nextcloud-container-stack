@@ -1,0 +1,148 @@
+secrets:
+  nextcloud_db_root_pw:
+    external: true
+  nextcloud_db_user_pw:
+    external: true
+
+services:
+# サービス本体
+# リバースプロキシ
+  nginx:
+    container_name: nextcloud-nginx
+    image: docker.io/library/nginx:${NGINX_VER}
+    restart: always
+    ports:
+      - 8443:443
+    volumes:
+      - ${NGINX_CONFIG}:/etc/nginx/templates/nginx_nextcloud.conf.template
+      - ${NGINX_SSL_CERT}:/etc/nginx/ssl/cert.pem
+      - ${NGINX_SSL_CERT_KEY}:/etc/nginx/ssl/privkey.pem
+    environment:
+      - SERVER_NAME=${NGINX_SERVER_NAME}
+      - SSL_CERT=${NGINX_SSL_CERT}
+      - SSL_CERT_KEY=${NGINX_SSL_CERT_KEY}
+    logging:
+      driver: journald
+      options:
+        tag: "compose_app_name=${APP_NAME}"
+
+# NextCloud
+  nextcloud:
+    container_name: nextcloud
+    image: docker.io/library/nextcloud:${NEXTCLOUD_VER}
+    restart: always
+    secrets:
+      - nextcloud_db_user_pw
+    entrypoint: ["sh", "/nextcloud-entrypoint.sh"]
+    volumes:
+      - ${APP_DATA_DIR}/nextcloud:/var/www/html
+      - ${NEXTCLOUD_CUSTOM_ENTRYPOINT}:/nextcloud-entrypoint.sh:ro
+    environment:
+      - MYSQL_HOST=nextcloud-db
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+      - DEFAULT_HOST=sandbox.nanajo.com
+      - VIRTUAL_HOST=nextcloud
+    depends_on:
+      nextcloud-db:
+        condition: service_healthy
+    logging:
+      driver: journald
+      options:
+        tag: "compose_app_name=${APP_NAME}"
+
+# DB
+  nextcloud-db:
+    container_name: nextcloud-db
+    image: docker.io/library/mariadb:${MARIADB_VER}
+    restart: always
+    volumes:
+      - ${APP_DATA_DIR}/nextcloud-db-data:/var/lib/mysql
+    secrets:
+      - nextcloud_db_root_pw
+      - nextcloud_db_user_pw
+    environment:
+      - MARIADB_ROOT_PASSWORD_FILE=/run/secrets/nextcloud_db_root_pw
+      - MARIADB_PASSWORD_FILE=/run/secrets/nextcloud_db_user_pw
+      - MARIADB_DATABASE=nextcloud
+      - MARIADB_USER=nextcloud
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -u root -p\"$(cat /run/secrets/nextcloud_db_root_pw)\" >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    logging:
+      driver: journald
+      options:
+        tag: "compose_app_name=${APP_NAME}"
+
+  nextcloud-setup:
+    container_name: nextcloud-setup
+    image: docker.io/library/nextcloud:${NEXTCLOUD_VER}
+    restart: "no"
+    volumes:
+      - ${APP_DATA_DIR}/nextcloud:/var/www/html
+      - ${NEXTCLOUD_OCC_SETUP}:/occ-setup.sh:ro
+    command: ["sh", "/occ-setup.sh"]
+    environment:
+      - TRUSTED_DOMAIN=${NGINX_SERVER_NAME}:8443
+      - TRUSTED_PROXY=nextcloud-nginx
+      - OVERWRITE_HOST=${NGINX_SERVER_NAME}:8443
+      - OVERWRITE_PROTOCOL=https
+      - OVERWRITE_CLI_URL=https://${NGINX_SERVER_NAME}:8443
+    depends_on:
+      nextcloud:
+        condition: service_started
+      nextcloud-db:
+        condition: service_healthy
+
+# モニタリング用コンテナ
+  podman-exporter:
+    image: quay.io/navidys/prometheus-podman-exporter:${PODMAN_EXPORTER_VER}
+    profiles: ["monitoring"]
+    container_name: podman-exporter
+    userns_mode: keep-id
+    user: 65534
+    command:
+      - --collector.enable-all
+      - --web.listen-address=:9882
+    environment:
+      CONTAINER_HOST: unix:///run/podman/podman.sock
+      HOME: /tmp
+      XDG_CONFIG_HOME: /tmp/.config
+    volumes:
+      - /run/user/${USER_UID}/podman/podman.sock:/run/podman/podman.sock:ro
+    logging:
+      driver: journald
+      options:
+        tag: "compose_app_name=${APP_NAME}"
+
+  alloy:
+    image: docker.io/grafana/alloy:${ALLOY_VER}
+    profiles: ["monitoring"]
+    container_name: alloy
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy
+      - /etc/alloy/config.alloy
+    environment:
+      APP_NAME: ${APP_NAME}
+      ALLOY_JOB_NAME: ${ALLOY_JOB_NAME}
+      PROMETHEUS_REMOTE_WRITE_URL: ${PROMETHEUS_REMOTE_WRITE_URL}
+    volumes:
+      - ${APP_DIR_ROOT}/conf.d/config.alloy:/etc/alloy/config.alloy:ro
+      - ${APP_DATA_DIR}/alloy:/var/lib/alloy:Z
+    depends_on:
+      - podman-exporter
+    logging:
+      driver: journald
+      options:
+        tag: "compose_app_name=${APP_NAME}"
+
+# ネットワーク設定
+networks:
+  default:
+    name: ${PODMAN_NETWORK_0}
+    external: true
