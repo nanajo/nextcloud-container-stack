@@ -3,6 +3,10 @@ logging {
   format = "logfmt"
 }
 
+local.file "host_hostname" {
+  filename = "/etc/host_hostname"
+}
+
 discovery.relabel "podman_exporter" {
   targets = [
     {
@@ -20,6 +24,10 @@ prometheus.scrape "podman_exporter" {
 }
 
 prometheus.remote_write "host_prometheus" {
+  external_labels = {
+    host = string.trim_space(local.file.host_hostname.content),
+  }
+
   endpoint {
     url = env("PROMETHEUS_REMOTE_WRITE_URL")
   }

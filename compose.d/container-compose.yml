@@ -8,7 +8,7 @@ services:
 # サービス本体
 # リバースプロキシ
   nginx:
-    container_name: nextcloud-nginx
+    container_name: nextcloud-container-stack_nginx
     image: docker.io/library/nginx:${NGINX_VER}
     restart: always
     ports:
@@ -28,7 +28,7 @@ services:
 
 # NextCloud
   nextcloud:
-    container_name: nextcloud
+    container_name: nextcloud-container-stack_nextcloud
     image: docker.io/library/nextcloud:${NEXTCLOUD_VER}
     restart: always
     secrets:
@@ -53,7 +53,7 @@ services:
 
 # DB
   nextcloud-db:
-    container_name: nextcloud-db
+    container_name: nextcloud-container-stack_nextcloud-db
     image: docker.io/library/mariadb:${MARIADB_VER}
     restart: always
     volumes:
@@ -78,7 +78,7 @@ services:
         tag: "compose_app_name=${APP_NAME}"
 
   nextcloud-setup:
-    container_name: nextcloud-setup
+    container_name: nextcloud-container-stack_nextcloud-setup
     image: docker.io/library/nextcloud:${NEXTCLOUD_VER}
     restart: "no"
     volumes:
@@ -96,12 +96,11 @@ services:
         condition: service_started
       nextcloud-db:
         condition: service_healthy
-
 # モニタリング用コンテナ
   podman-exporter:
     image: quay.io/navidys/prometheus-podman-exporter:${PODMAN_EXPORTER_VER}
     profiles: ["monitoring"]
-    container_name: podman-exporter
+    container_name: nextcloud-container-stack_podman-exporter
     userns_mode: keep-id
     user: 65534
     command:
@@ -122,7 +121,7 @@ services:
   alloy:
     image: docker.io/grafana/alloy:${ALLOY_VER}
     profiles: ["monitoring"]
-    container_name: alloy
+    container_name: nextcloud-container-stack_alloy
     command:
       - run
       - --server.http.listen-addr=0.0.0.0:12345
@@ -134,6 +133,7 @@ services:
       PROMETHEUS_REMOTE_WRITE_URL: ${PROMETHEUS_REMOTE_WRITE_URL}
     volumes:
       - ${APP_DIR_ROOT}/conf.d/config.alloy:/etc/alloy/config.alloy:ro
+      - /etc/hostname:/etc/host_hostname:ro
       - ${APP_DATA_DIR}/alloy:/var/lib/alloy:Z
     depends_on:
       - podman-exporter

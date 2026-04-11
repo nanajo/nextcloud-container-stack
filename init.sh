@@ -39,6 +39,10 @@ update_file_contents() {
     sed -i "s/user_name/${USER_NAME}/g" template-application.service
     sed -i "s/group_name/${GROUP_NAME}/g" template-application.service
     sed -i "s/template-application/${APP_NAME}/g" template-application.service
+
+    # メトリクス収集用のpodman-exporter, alloyのコンテナ名の書き換え
+    sed -i  "s/container_name: podman-exporter/container_name: ${APP_NAME}_podman-exporter/g" compose.d/container-compose.yml
+    sed -i  "s/container_name: alloy/container_name: ${APP_NAME}_alloy/g" compose.d/container-compose.yml
 }
 
 # ファイル名の更新

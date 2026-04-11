@@ -23,7 +23,7 @@ server {
     add_header Permissions-Policy "interest-cohort=()" always;
     # リバースプロキシ設定
     location / {
-        proxy_pass http://nextcloud/;
+        proxy_pass http://nextcloud-container-stack_nextcloud/;
         proxy_max_temp_file_size 102400m;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -33,7 +33,7 @@ server {
     }
     # /loginへのアクセスは時間あたりの回数を制限
     location /login {
-        proxy_pass http://nextcloud/login;
+        proxy_pass http://nextcloud-container-stack_nextcloud/login;
         limit_req zone=login;
         limit_conn perip 100;
         proxy_set_header Host $host;

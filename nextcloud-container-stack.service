@@ -1,5 +1,5 @@
 [Unit]
-Description=NextCloud container stack managed by podman compose.
+Description=NextCloud hosting stack managed by podman-compose.
 Documentation=man:systemd.service(5)
 Wants=network-online.target
 After=network-online.target
